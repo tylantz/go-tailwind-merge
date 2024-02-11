@@ -1,0 +1,1 @@
+p-1 p-2 h-10 h-full mix-blend-normal mix-blend-multiply hover:block hover:inline underline line-through border-t border-white/10 w-full w-fit inset-x-1 right-1 inset-1 space-x-16 space-x-2 stroke-black stroke-1 p-3Important p-2 ring shadow ring-2 shadow-md touch-none touch-pan-x text-wrap text-pretty
