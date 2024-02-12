@@ -44,6 +44,12 @@ func main() {
 }
 ```
 
+## Install
+
+```
+go get github.com/tylantz/go-tailwind-merge
+```
+
 ## The problem
 
 TLDR: One cannot consistently override Tailwind CSS classes by adding additional class names to the class attribute.
@@ -74,14 +80,14 @@ The javascript library analyses class strings lexicographically: it tries to ide
 
 In contrast, this library parses one or more stylesheets and, instead of identifying common tailwind names, it identifies class conflicts based on the actual rule definitions. This approach allows a user to merge classes from any source, not just tailwind. The drawback is one has to instantiate a Merger struct, give it the stylesheet to parse, and pass it around or use a singleton within a package. In the Go context, this approach makes sense because the same Go server that is serving html is probably also serving the stylesheet(s), and therefore has access to it to parse. It's also pretty fast because there is limited use of regex required and there is no need to recursively walk down the class names in the html.
 
-This package is not optimised, but initial merges take 0.117 miliseconds and subsequent merges using the provided sync.Map-based cache take 21 nanoseconds on a gnarly class list with 31 class names.
+This package is not optimised, but initial merges take 0.105 miliseconds and subsequent merges using the provided sync.Map-based cache take 21 nanoseconds on a gnarly class list with 31 class names.
 
 ```
 cpu: 12th Gen Intel(R) Core(TM) i7-1260P
 BenchmarkMergeNoCache-16
-    9112	    117416 ns/op	   48501 B/op	    1126 allocs/op
-BenchmarkMergeMapCache-16
-58723353	        20.77 ns/op	       0 B/op	       0 allocs/op
+    10000	    105325 ns/op	   47690 B/op	     693 allocs/op
+BenchmarkMergeCache-16
+	58723353	20.77 ns/op	       0 B/op	       0 allocs/op
 ```
 
 ## Example
@@ -164,5 +170,5 @@ The merge algorithm tries to assess conflicting style properties within the cont
 ## Todo
 
 - [ ] Remove html parsing from internal/cascadia to drop dependency on net/html
-- [ ] Remove unused CSS property elements from internal/props
+- [x] Remove unused CSS property elements from internal/props
 - [ ] Add support of CSS-native [@layer rule](https://developer.mozilla.org/en-US/docs/Web/CSS/@layer)
