@@ -8,6 +8,8 @@
 # go-tailwind-merge
 
 <a href="https://pkg.go.dev/github.com/tylantz/go-tailwind-merge"><img src="https://pkg.go.dev/badge/github.com/tylantz/go-tailwind-merge.svg" alt="Go Reference" /></a>
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![Go Report Card](https://goreportcard.com/badge/tylantz/go-tailwind-merge)](https://goreportcard.com/report/tylantz/go-tailwind-merge)
 
 A utility for resolving CSS class conflicts. Inspired by [dcastil/tailwind-merge](https://github.com/dcastil/tailwind-merge). Useful for tailwind and non-tailwind CSS.
 
