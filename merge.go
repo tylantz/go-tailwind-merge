@@ -21,7 +21,7 @@ type Cache interface {
 	Clear()                        // Clear the cache
 }
 
-// Merger is a struct that resolved conflicting css class rules.
+// Merger is a struct that resolves conflicting css rules.
 type Merger struct {
 	mu         sync.Mutex // mutex is only used when adding rules
 	rules      map[string]cascadia.CssRule
@@ -54,7 +54,7 @@ func (r *Merger) Rules() map[string]cascadia.CssRule {
 	return r.rules
 }
 
-// walk walks a selector and returns a slice of component selectors.
+// walk recursively walks a selector and returns a slice of component selectors.
 // It may return a single selector in a slice or many in a slice.
 func walk(selector cascadia.Sel) []cascadia.Sel {
 	var selectors []cascadia.Sel
@@ -113,7 +113,7 @@ func (r *Merger) AddRules(reader io.Reader, inline bool) error {
 }
 
 func (r *Merger) getAffectedProps(rule cascadia.CssRule) []string {
-	affectedProps := make([]string, 0)
+	affectedProps := make([]string, 0, len(rule.Declarations)*4) // 4 is arbitrary. reducing allocations
 	for _, dec := range rule.Declarations {
 		prop, ok := r.properties[dec.Property]
 		if !ok {
@@ -138,6 +138,9 @@ func getCustomVarsInDec(dec cascadia.CssDeclaration) []string {
 	}
 	vars := make([]string, 0, len(matches))
 	for _, match := range matches {
+		if len(match) < 2 {
+			continue
+		}
 		vars = append(vars, match[1])
 	}
 	return vars
@@ -175,6 +178,20 @@ func isClass(sel cascadia.Sel) bool {
 	return false
 }
 
+// propModifier returns a string representing the circumstance in which the class applies.
+// This may be pseudo elements like hover, focus, etc. or, in the case of a combination selector,
+// it can be the selector with the class name removed
+func propModifier(class string, rule cascadia.CssRule) string {
+	if isClass(rule.Selector) || classWithPseudo(rule.Selector) {
+		// if the rule has a condition (:hover, :focus, etc.), add the condition to the property name
+		return rule.GetCondition()
+	} else {
+		// use the selector with the class name removed to codify what the selector is being applied to
+		s := cascadia.CssUnescape([]byte(rule.Selector.String()))
+		return strings.Replace(s, class, "", 1)
+	}
+}
+
 // Merge resolves conflicting css class rules.
 // It takes a string of space-separated class names.
 // Returns a string of space-separated class names with the conflicting classes removed.
@@ -199,10 +216,10 @@ func (r *Merger) Merge(inClass string) string {
 
 	// propsToClasses is a map of properties that are shared between classes
 	// The property name may have a condition (pseudo or media) appended to it (e.g., "height:hover": ["h-10", "h-20"])
-	propsToSelectors := make(map[string][]string, len(split))
-	importantPropsToSelectors := make(map[string][]string)
-	customVarsToSelectors := make(map[string][]string) // map of custom vars to the class that set them
-	propsToCustomVars := make(map[string][]string)     // map of props to the custom vars that it uses
+	propsToSelectors := make(map[string]string, len(split))
+	importantPropsToSelectors := make(map[string]string, len(split))
+	customVarsToSelectors := make(map[string]string, len(split)) // map of custom vars to the class that set them
+	propsToCustomVars := make(map[string][]string, len(split))   // map of props to the custom vars that it uses
 	for _, class := range split {
 		rule, ok := r.rules[class]
 		if !ok {
@@ -212,16 +229,11 @@ func (r *Merger) Merge(inClass string) string {
 		}
 
 		selectorToClass[rule.Selector.String()] = class
+		propMod := propModifier(class, rule)
 
 		for _, prop := range r.getAffectedProps(rule) {
-			// if the rule has a condition (:hover, :focus, etc.), add the condition to the property name
-			if isClass(rule.Selector) || classWithPseudo(rule.Selector) {
-				prop = prop + rule.GetCondition()
-			} else {
-				// use the selector with the class name removed to codify what the selector is being applied to
-				s := cascadia.CssUnescape([]byte(rule.Selector.String()))
-				prop = prop + strings.Replace(s, class, "", 1)
-			}
+
+			prop = prop + propMod
 
 			for _, dec := range rule.Declarations {
 
@@ -234,47 +246,44 @@ func (r *Merger) Merge(inClass string) string {
 
 				// if the property is marked !important, add the class to the importantProps map
 				if importantRegex.MatchString(dec.Value) {
-					importantPropsToSelectors[prop] = append(importantPropsToSelectors[prop], rule.Selector.String())
+					importantPropsToSelectors[prop] = rule.Selector.String()
 				}
 			}
 
 			// if it has a custom prop, add it to the customVars map
 			if strings.HasPrefix(prop, "--") {
-				customVarsToSelectors[prop] = append(customVarsToSelectors[prop], rule.Selector.String())
+				customVarsToSelectors[prop] = rule.Selector.String()
 				continue
 			}
 
 			// add all classes to the propsToClasses map
-			propsToSelectors[prop] = append(propsToSelectors[prop], rule.Selector.String())
+			propsToSelectors[prop] = rule.Selector.String()
 		}
 	}
 
 	// keep the last class in the list for each property
 	// importantly, this keeps classes that uniquely define a property, even if it has properties that conflict with other classes
-	for _, selList := range propsToSelectors {
-		sel := selList[len(selList)-1]
+	for _, sel := range propsToSelectors {
 		class := selectorToClass[sel]
 		keepClasses = append(keepClasses, class)
 	}
 
 	// If a class has an !important property, it is kept unless another class comes later in the class string and it is marked !important on the same property.
-	for _, selList := range importantPropsToSelectors {
+	for _, sel := range importantPropsToSelectors {
 		// This does not remove the class that the the important class is overriding,
 		// but it shouldn't matter because the important class will override the other,
 		// and the other class may have other properties that are not being overridden
-		sel := selList[len(selList)-1]
 		class := selectorToClass[sel]
 		keepClasses = append(keepClasses, class)
 	}
 
 	// keep the class that sets the last definition of each custom property if that custom property is actually used
-	for custVar, selList := range customVarsToSelectors {
+	for custVar, sel := range customVarsToSelectors {
 		for _, vars := range propsToCustomVars {
 			// if the custom property is actually used, keep the class that sets it
 			if !slices.Contains(vars, custVar) {
 				continue
 			}
-			sel := selList[len(selList)-1]
 			class := selectorToClass[sel]
 			keepClasses = append(keepClasses, class)
 			break

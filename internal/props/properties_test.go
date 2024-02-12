@@ -71,7 +71,7 @@ func TestUnMarshalPropsShortHands(t *testing.T) {
 			wantProp: Property{
 				name: "background-image",
 				property: property{
-					Computed: "asSpecifiedURLsAbsolute",
+					Computed: []string{"background-image"},
 					Status:   "standard",
 					AlsoAppliesTo: []AlsoAppliesTo{
 						"::first-letter",

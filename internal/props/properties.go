@@ -15,8 +15,7 @@ var propsJson []byte
 
 // Property represents a CSS property.
 type Property struct {
-	name     string
-	computed []string
+	name string
 	property
 }
 
@@ -24,23 +23,8 @@ func (p *Property) Name() string {
 	return p.name
 }
 
-// TODO MOVE THIS TO CREATION OF PROPERTY
 func (p *Property) ComputedProps() []string {
-	if len(p.computed) > 0 {
-		return p.computed
-	}
-	jsonValue, err := json.Marshal(p.property.Computed)
-	if err != nil {
-		return nil
-	}
-
-	var computed []string
-	err = json.Unmarshal(jsonValue, &computed)
-	if err != nil {
-		computed = []string{p.name}
-	}
-	p.computed = computed
-	return computed
+	return p.Computed
 }
 
 // Status returns the status of the property.
@@ -62,27 +46,17 @@ const (
 )
 
 type property struct {
-	Syntax        string           `json:"syntax"`
-	Media         interface{}      `json:"media"` // can be string or array of strings
-	Inherited     bool             `json:"inherited"`
-	AnimationType interface{}      `json:"animationType"` // can be string or array of strings
-	Percentages   interface{}      `json:"percentages"`   // can be string or array of strings
-	Groups        []gen.GroupsElem `json:"groups"`
-	Initial       interface{}      `json:"initial"` // can be string or array of strings
-	Appliesto     gen.Appliesto    `json:"appliesto"`
-	Computed      interface{}      `json:"computed"` // can be string or array of strings
-	Order         gen.Order        `json:"order"`
-	Status        gen.Status       `json:"status"`
-	AlsoAppliesTo []AlsoAppliesTo  `json:"alsoAppliesTo,omitempty"`
-	MdnUrl        string           `json:"mdn_url,omitempty"`
-	Stacking      bool             `json:"stacking,omitempty"`
+	Computed      []string        `json:"computed"` // this diverges from CSS-spec. We take the name of the property or a slice of strings (e.g., padding-bottom, etc.)
+	Status        gen.Status      `json:"status"`
+	Appliesto     gen.Appliesto   `json:"appliesto"`
+	AlsoAppliesTo []AlsoAppliesTo `json:"alsoAppliesTo,omitempty"`
 }
 
 // GetProperties returns a map of all CSS properties.
 // The key is the name of the property, and the value is the property itself.
 func GetProperties() (map[string]Property, error) {
 
-	props := make(map[string]interface{})
+	props := make(map[string]map[string]interface{})
 	err := json.Unmarshal(propsJson, &props)
 	if err != nil {
 		return nil, err
@@ -90,6 +64,10 @@ func GetProperties() (map[string]Property, error) {
 
 	propMap := make(map[string]Property)
 	for name, prop := range props {
+
+		computed := computedProps(prop["computed"], name)
+		prop["computed"] = computed
+
 		jsonValue, err := json.Marshal(prop)
 		if err != nil {
 			return nil, err
@@ -104,4 +82,25 @@ func GetProperties() (map[string]Property, error) {
 		propMap[name] = p
 	}
 	return propMap, nil
+}
+
+// this is janky....
+// take the "Computed" property as an interface
+// it might be a string or a slice of strings
+// if it is a string, return the property name in a slice
+// if it is a slice of strings, return that
+func computedProps(p interface{}, name string) []string {
+
+	jsonValue, err := json.Marshal(p)
+	if err != nil {
+		return nil
+	}
+
+	var computed []string
+	err = json.Unmarshal(jsonValue, &computed)
+	if err != nil {
+		computed = []string{name}
+	}
+
+	return computed
 }
