@@ -50,6 +50,36 @@ func main() {
 go get github.com/tylantz/go-tailwind-merge
 ```
 
+## Example
+
+I recommend using a real template library such as [template/html](https://pkg.go.dev/html/template) or [templ](https://github.com/a-h/templ). This is a basic example without one.
+
+```go
+import (
+	merge "github.com/tylantz/go-tailwind-merge"
+)
+
+func button(merger *Merger, content string, class string) string {
+	baseClass := "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 bg-green-500"
+
+	class = merger.Merge(baseClass + " " + class)
+
+	return fmt.Sprintf(`<button type="submit" class="%s">%s</button>`, class, content)
+}
+
+func formWithButton(merger *Merger) string {
+	button := button(merger, "Submit", "bg-blue-500")
+
+	form := `
+	<form action="/submit" method="post">
+		<label for="name">Name:</label><br>
+		<input type="text" id="name" name="name"><br>
+		%s
+	</form>`
+	return fmt.Sprintf(form, button)
+}
+```
+
 ## The problem
 
 TLDR: One cannot consistently override Tailwind CSS classes by adding additional class names to the class attribute.
@@ -88,36 +118,6 @@ BenchmarkMergeNoCache-16
     10000	    105325 ns/op	   47690 B/op	     693 allocs/op
 BenchmarkMergeCache-16
 	58723353	20.77 ns/op	       0 B/op	       0 allocs/op
-```
-
-## Example
-
-I recommend using a real template library such as [template/html](https://pkg.go.dev/html/template) or [templ](https://github.com/a-h/templ). This is a basic example without one.
-
-```go
-import (
-	merge "github.com/tylantz/go-tailwind-merge"
-)
-
-func button(merger *Merger, content string, class string) string {
-	baseClass := "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 bg-green-500"
-
-	class = merger.Merge(baseClass + class)
-
-	return fmt.Sprintf(`<button type="submit" class="%s">%s</button>`, class, content)
-}
-
-func formWithButton(merger *Merger) string {
-	button := button(merger, "Submit", "bg-blue-500")
-
-	form := `
-	<form action="/submit" method="post">
-		<label for="name">Name:</label><br>
-		<input type="text" id="name" name="name"><br>
-		%s
-	</form>`
-	return fmt.Sprintf(form, button)
-}
 ```
 
 ## Limitations
@@ -160,6 +160,15 @@ The merge algorithm tries to assess conflicting style properties within the cont
 - Rules that are applied under certain circumstances (at-rules), for example based on screen-size, are only compared with other rules that are applied under the same circumanstances.
   - For instance, if a class is "w-7/12 md:w-1/2 w-full md:w-full", the algorithm resolves "w-7/12" vs. "w-full" and "md:w-1/2" vs. "md:w-full" separately and the resulting class will be "w-full md:w-full".
   - This works well for most standard use cases, but it could potentially cause uncertain behaviour for other at-rules (untested).
+
+## VS Code - templ/tailwind
+
+The tailwind CLI looks through your code for strings it believes may be html classes. It can miss some when you apply classes as arguments to templ components. Add the lines below to your VS-code settings.json so the CLI and tailwind plugins work correctly.    
+```json
+    "tailwindCSS.experimental.classRegex": [
+        ["@.*?\\(\"([^\"]*?)\"\\)"]
+    ],
+```
 
 ## Acknowledgments
 
