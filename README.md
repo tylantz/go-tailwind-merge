@@ -149,7 +149,7 @@ If the p element has a parent with "class1", the browser will prioritise any sha
 
 The problem is the merger struct only has access to the class attribute on one element, the \<p> element, so it cannot know that the \<p> is a descendant of a "class1" element because it doesn't have access to the parent node.
 
-The merge algorithm tries to assess conflicting style properties within the context of the situation in which they would be applied. In this example, because class2 is dependent on having a class1 parent and class3 has no depenedenc, the algorithm will keep both classes because class2's dependency cannot be checked and it would have greater specificity if it were met. If there is no class1 parent element, class2 won't be applied by the browser anyway so we end up with the desired behaviour.
+The merge algorithm tries to assess conflicting style properties within the context of the situation in which they would be applied. In this example, because class2 is dependent on having a class1 parent and class3 is not contingent, the algorithm will keep both classes because class2's dependency cannot be checked and it would have greater specificity if it were met. If there is no class1 parent element, class2 won't be applied by the browser anyway so we end up with the desired behaviour.
 
 ### Other limitations
 
